@@ -5,7 +5,7 @@ require 'optim'
 
 require 'loadcaffe'
 
-
+local magick = require("magick")
 local cmd = torch.CmdLine()
 
 -- Basic options
@@ -81,7 +81,7 @@ local function main(params)
   
   local content_image = image.load(params.content_image, 3)
   local content_image_thumb = image.scale(content_image, params.image_size/2, 'bilinear')
-  image.save('content_thumb.png', content_image_thumb)
+  image.save('content_thumb.png', image.drawText(content_image_thumb, "", 5, 5,{color = {0, 255, 0}, bg = {255, 0, 0}, size = 1}))
   content_image = image.scale(content_image, params.image_size, 'bilinear')
   local content_image_caffe = preprocess(content_image):float()
   
@@ -91,11 +91,14 @@ local function main(params)
   for _, img_path in ipairs(style_image_list) do
     local img = image.load(img_path, 3)
     img = image.scale(img, style_size, 'bilinear')
-    local style_image_thumb = image.scale(img, params.image_size/2, 'bilinear')
-    image.save('style_thumb.png', style_image_thumb)
+    local style_image_thumb = image.scale(img, params.image_size/1, 'bilinear')
+    image.save('style_thumb.png', image.drawText(style_image_thumb, "", 5, 5,{color = {0, 255, 0}, bg = {255, 0, 0}, size = 1}))
     local img_caffe = preprocess(img):float()
     table.insert(style_images_caffe, img_caffe)
   end
+  
+  -- Take "style_thumb.png" and "content_thumb.png" and append them together side by side in one image
+  os.execute("convert +append content_thumb.png style_thumb.png content_style_thumb.png")
 
   -- Handle style blending weights for multiple style inputs
   local style_blend_weights = nil
@@ -313,8 +316,11 @@ local function main(params)
       if params.original_colors == 1 then
         disp = original_colors(content_image, disp)
       end
-
-      image.save(filename, disp)
+      image.save(filename, image.drawText(disp, "Iteration: " .. t, 0, 0,{color = {0, 255, 0}, bg = {255, 0, 0}, size = 1}))
+      os.execute("convert -append " .. filename .. " content_style_thumb.png test_thumb-" .. t .. ".png")
+--       os.execute("convert -resize 100% -delay 50 -loop 0 test_thumb-" .. t .. ".png animated.gif")
+      os.execute("convert -delay 50 animated.gif -layers coalesce test_thumb-" .. t .. ".png -layers optimize animated.gif")
+      
     end
   end
 
